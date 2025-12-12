@@ -1,0 +1,12 @@
+---
+advanced:
+  stage: build
+  image:
+    # name: pandoc/latex
+    name: scc-registry.lancs.ac.uk/teaching/pandoc_base:latest
+    entrypoint: ["/bin/sh", "-c"]
+  script:
+    - make
+  artifacts:
+    paths:
+      - output
