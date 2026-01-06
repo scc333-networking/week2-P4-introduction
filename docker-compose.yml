@@ -1,0 +1,26 @@
+services:
+  mininet:
+    image: opennetworking/ngsdn-tutorial:stratum_bmv2
+    hostname: mininet
+    container_name: mininet
+    privileged: true
+    tty: true
+    stdin_open: true
+    restart: always
+    environment:
+    - DISPLAY=docker.for.mac.host.internal:0
+    volumes:
+      - ./tmp:/tmp
+      - ./mininet:/mininet
+      - ./p4src:/p4sr
+      - ./util:/util
+    ports:
+      - "50001:50001"
+      - "50002:50002"
+      - "50003:50003"
+      - "50004:50004"
+      - "60001:60001"
+    # NGSDN_TOPO_PY is a Python-based Mininet script defining the topology. Its
+    # value is passed to docker-compose as an environment variable, defined in
+    # the Makefile.
+    entrypoint: "/mininet/topo.py"
