@@ -1,4 +1,4 @@
-# SCC.333 Practical Exercise templates
+# SCC.333 Week 2: Introduction to P4 Programming
 
 This week's activity aims to introduce you to P4 programming by guiding you through the process of building a simple packet forwarding pipeline. This activity aims to support the lecture we will have this week on the P4 language and provide you with the hand-on experience of using SDN in practice. We will use the P4 throughpout this lab, so please do not simply copy and paste code during task, but rather try to understand the how and the why . By the end of this exercise, you will have a basic understanding of how to define packet headers, parse packets, and implement forwarding logic using P4. Our work will build upon the knowledge you gained from the Wireshark exercise earlier in the course. **If you have not completed that exercise, please do so before proceeding.**
 
@@ -8,6 +8,93 @@ By the end of this exercise, you will be able to:
 - Define custom packet headers in P4
 - Implement a basic packet parser
 - Create a simple forwarding logic based on packet headers
+
+## Network Layering Recap
+
+Before we dive into building our own P4 switch for our home network, we need to remind readers some key design principles for modern networks. At the heart of network technologies lies the concepts of packets, the fundamental units of communication in a network. As we saw using Wireshark, hosts within a network communicate by sending and receiving packets. Each packet is made up of multiple headers, stacked on top of one another, followed by the actual data (payload) being transmitted. This follows the wider layering philosophy of modern networks, where network functionality is split across network layers (TCP/IP: physical layer, data link layer, network layer, transport layer, application layer). Each layer typically requires a corresponding header in every packet, containing specific information about the packet, such as how it should be handled, where it’s coming from, and where it’s going, and association with other packets of the same stream. Understanding these headers is essential, because switches and routers rely on them to make forwarding decisions.
+
+``` 
++-----------------------------+
+| Ethernet Header (MAC)       |  ← Used by switches
++-----------------------------+
+| IP Header (IP Address)      |  ← Used by routers
++-----------------------------+
+| TCP / UDP Header            |  ← Used by applications
++-----------------------------+
+| Payload (Actual Data)       |  ← Message, file, video, etc.
++-----------------------------+
+```
+
+Below is a brief overview of the most common headers found in network packets:
+
+- The *Ethernet* Header (Layer 2 – Data Link) contains information to support packet delivery within a network. Switches use this header to forward packets, while each network interface has a unique MAC address. **This header is modified on every hop as packets move between networks.** An Ethernet header contains the following header fields:
+
+  - *Source MAC address*: who sent the packet
+  - *Destination MAC address*: who should receive it next
+  - *EtherType*: indicates what protocol comes next (e.g., IPv4, IPv6, ARP)
+
+- The *IP* Header (Layer 3 – Network) contains information for packet delivery across networks. Networks use this header to route packets between different networks and each network host has one or more IP addresses. **This header should remain unchanged as packets traverse networks.** Some of the key fields in the IP header are the following:
+
+  - *Source IP address*, *Destination IP address*: who sent and who should receive the packet
+  - *Protocol* fieldL describes which transport protocol is being used (TCP, UDP, ICMP, etc.)
+  - *TTL (Time To Live)*: Decremented on every hop, and packets with a value of 0 are discarded to prevent infinite looping
+  - Header *length*: describes the size of the IP header
+
+- The *ICMP* Header (Layer 3 - Network) is used for IP and transport diagnostics and error reporting. Commonly used by tools like ping and traceroute, it contains fields such as Type and Code to specify the nature of the message. ICMP packets do not carry application data.
+
+- The *UDP* or *TCP* header (Layer 4 – Transport Layer) contains information about how the packet is transmitted between applications on different hosts. The header is typically processed on the end-hosts only and it contains information about which application on a host is sending or receiving the packet, as well as providing some additional services, like flow control and error checking. TCP offers reliable delivery with congestion control, while UDP is faster but does not guarantee delivery. Some of the key fields in the TCP/UDP header are:
+
+  - *Source port* and *Destination port*: identify which application is sending/receiving the packet
+  - *Sequence number* (TCP only): used for ordering packets
+  - *Flags* (TCP only): control bits for connection management (SYN, ACK, FIN, etc.)
+
+- Application layer (HTTP, DNS, FTP) protocols (Layer 7) typically define dedicated header format to convey per protocol interactions (e.g., request an HTTP objects). Header encoding can use either text-based formats (like HTTP) or binary formats (like DNS) and format widely varies between protocols.
+
+- It is not uncommon for packets to include *optional or special headers* that provide additional functionality. These headers are not part of the core packet structure but are used to support specific network features or services. Examples include VLAN tags for network segmentation, MPLS headers for efficient routing in service provider networks, and IPsec headers for secure communication. **Network devices usually do not inspect this, unless deep packet inspection is enabled.**
+
+- Optional or special headers are not present in every packet. They are added only when specific network features or services are required. These headers allow networks to provide advanced functionality beyond basic packet forwarding, without changing the core packet structure.
+
+
+<!-- ## Analogy: Sending a Letter
+Think of a packet like mailing a letter:
+- Ethernet header → Office mailroom instructions
+- IP header → City and street address
+- TCP/UDP header → Delivery instructions (urgent or careful)
+- Payload → The letter itself
+
+Each network device only reads the part it cares about! -->
+
+To process each of these headers, network devices like switches and routers use predefined rules to inspect specific fields in the headers and make forwarding decisions based on those fields. Each device will need its own configuration to know how to handle packets, based on the protocols and services it supports, while distributed protocols, like the OSPF and BGP routing protocols, help routers dynamically learn about network topology and update their forwarding tables accordingly. This properties where sufficient for networks requirements in the early days of the Internet, but as networks have evolved, the need for more flexibility and programmability has become apparent. This is where P4 comes in.
+
+
+## Why This Matters for P4 & SDN
+P4 (Programming Protocol-Independent Packet Processors) is a programming language designed to give developers control over how packets are processed in network devices. It allows you to define how packets are parsed, processed, and forwarded, enabling the creation of custom network functions and behaviors.
+Normally, switches and routers are like robots with fixed instructions:
+> “I only understand Ethernet, IP, TCP… don’t ask me to do anything else.”
+P4 changes that.
+
+With P4, you get to say:
+>“Hey switch, this is what a packet looks like, this is how I want you to read it, and this is what I want you to do with it.”
+
+### In other words:
+P4 = Programming Your Network Like a Game Character
+- You define what headers exist
+- You define how packets are processed
+- You define what actions to take
+- You control the rules of the game
+
+### Why P4 Is Cool?
+- You’re not stuck with predefined protocols
+- You can build custom routers and switches
+- You get full control over packet forwarding logic
+
+### Analogy: A Custom Recipe
+Traditional networking is like ordering from a fixed menu.
+
+P4 lets you write your own recipe:
+- Choose the ingredients (packet headers)
+- Decide how to cook them (packet processing)
+- Decide who gets served (forward, drop, modify)
 
 ## Task 0: Starting your 333 devcontainer environment
 
@@ -23,7 +110,7 @@ If you have opened correctly the devcontainer, you should see the following prom
 
 ![Figure 5: Devcontainer terminal prompt](.resources/homenet-router.png){width="5in"}
 
-## Task 1: Running P4 programs in our home network scenario
+## Task 1: Using P4 in our home network scenario
 
 For this first task, we will reuse the home network topology we used in the first week and replace the Linux Switch node with a P4 switch. The updated topology file will replace the home switch with a P4 switch, which we will use to host our custom P4 applications. 
 
@@ -295,212 +382,80 @@ control MyIngress(inout headers hdr,
 
 You can drop packets by setting the `egress_spec` field to `0`. Alternatively, you can send packets to the CPU port by setting the `egress_spec` field to `CPU_PORT`, which is defined in the `v1model.p4` architecture file. This is useful for handling packets with unknown destination MAC addresses or for implementing control plane functionalities. We will explore this in more detail in our activity next week.
 
-### Using a Table
+## Task 3: Using P4 Tables for Packet Switching
 
-> If for the second solution you want to use a different program name and
-> and topology file you can just define a new `p4` file and a different `.json`
-> topology configuration, then you can run `sudo p4run --config <json file name>`.
+In our current solution, we have implemented the switching logic using conditional statements. However, this approach is not scalable and does not take advantage of the P4 language's capabilities. If you have a new device joining your network, you would need to modify the P4 program and recompile it, which is not practical in a real-world scenario.
 
-1. Define a table of size 2, that matches packet's ingress_port and uses that to figure out which output port needs to be used (following the definition of repeater).
+In this part of the exercise, we will extend the switching logic using a match-action table. A match-action table allows us to define a set of rules that map specific packet header fields to actions. The content of the table can be modified at runtime by external control applications using the P4 Runtime API, which allows us to add, modify, or delete entries without modifying the P4 program itself. The P4 switch will lookup the table for each incoming packet and execute the corresponding action based on the matching rule. This way, we can easily add or remove rules without modifying the P4 program itself.
 
-2. Define the action that will be called from the table. This action needs to set the output port. The type of `ingress_port` is `bit<9>`. For more info about the `standard_metadata` fields see: the [`v1model.p4`](https://github.com/p4lang/p4c/blob/master/p4include/v1model.p4) interface.
+The match-action table is typically used in the ingress (`MyIngress`) and the egress (`MyEgress`) control blocks, where header fields are applied and the packet forwarding decisions are made. In the provide code, the MyIngress control block is where we will implement the match-action table for switching and the content of the block is empty (i.e., `apply { }`). What you need to implement to complete this task, is to create a match-action table that matches the destination MAC address of the incoming packets and forwards them to the appropriate output port.
 
-3. Call (by using `apply`), the table you defined above.
+A table definition in P4 is defined using the `table` keyword and contains the table `name`, the table `key`, used to lookup entries, and a list of `actions`, ehich can be used by table entries. Furthermore, a table definition can contain a `size`, to define the maximum number of entries, a `default_action`, which will be applied if no entries match, and a match type, which include the options `exact`, `lpm` (longest-match prefix) and `ternary`. Actions resemble functions in C and can take parameters and contain code blocks that define the action logic. The example table definition below defines an IPv4 longest-prefix match table, which matches the destination IP address of incoming packets and forwards them to the appropriate output port. If no entries match, the default action is to drop the packet. Furthermore, an action called `ipv4_forward` is defined, which takes two parameters: the output port and the destination MAC address. The action sets the `egress_spec` field of the `standard_metadata` struct and updates the destination MAC address of the Ethernet header.
 
-4. Populate the table (using the P4 Runtime controller provided by the script `controller.py`). For more information about table population check the following [documentation](https://github.com/nsg-ethz/p4-learning/wiki/Control-Plane).
+```C
+action forward(in bit<9> p, bit<48> d) {
+    standard_metadata.egress_spec = p;
+    headers.ethernet.dstAddr =d;
+}
 
-## Testing your solution
-
-Once you have the `repeater.p4` program finished you can test its behaviour:
-
-1. Start the topology (this will also compile and load the program) using
-   ```bash
-   sudo p4run
-   ```
-   or
-   ```bash
-   sudo python network.py
-   ```
-
-2. Get a terminal in `h1` and `h2` using `mx`:
-
-   ```bash
-   mx h1
-   mx h2 #in different terminal windows
-   ```
-
-   Or directly from the mininet prompt using `xterm`:
-
-   ```
-   mininet> xterm h1 h2
-   ```
-
-3. Run `receive.py` app in `h2`.
-
-4. Run `send.py` in `h1`:
-
-   ```bash
-   python send.py 10.0.0.2 "Hello H2"
-   ```
-
-   The output at `h2` should be:
-
-   <!-- <img src="images/h2_output.png" title="Receive Output"> -->
-
-5. Since the switch will always forward traffic from `phone` to `router` and vice versa, we can test
-the repeater with other applications such as: `ping`, `iperf`, etc. The mininet CLI provides some helpers
-that make very easy such kind of tests:
-
-   ```
-   mininet> h1 ping h2
-   ```
-
-   ```
-   mininet> iperf h1 h2
-   ```
-
-#### Some notes on debugging and troubleshooting
-
-You should not have had any trouble with these first introductory exercises. However, as things get
-more complicated you will most likely need to debug your programs and the behaviour of the switch and network.
-
-We have added a [small guideline](https://github.com/nsg-ethz/p4-learning/wiki/Debugging-and-Troubleshooting) in the documentation section. Use it as a reference when things do not work as
-expected.
-
-# Task 2: Building a packet with P4
-
-Before we dive into building our own switch, we need to take a closer look at packets — the fundamental units of communication in a network.
-As we saw using Wireshark, hosts within a network communicate by sending and receiving packets. Each packet is made up of multiple headers, stacked on top of one another, followed by the actual data (payload) being transmitted.
-Each header provides specific information about the packet, such as how it should be handled, where it’s coming from, and where it’s going. Understanding these headers is essential, because switches and routers rely on them to make forwarding decisions.
-
-``` 
-+-----------------------------+
-| Ethernet Header (MAC)       |  ← Used by switches
-+-----------------------------+
-| IP Header (IP Address)      |  ← Used by routers
-+-----------------------------+
-| TCP / UDP Header            |  ← Used by applications
-+-----------------------------+
-| Payload (Actual Data)       |  ← Message, file, video, etc.
-+-----------------------------+
+table ipv4_lpm {
+    key = {
+        hdr.ipv4.dstAddr : lpm;
+        // standard match kinds:
+        // exact, ternary, lpm
+    }
+    // actions that can be invoked
+    actions = {
+        ipv4_forward;
+        drop;
+    }
+    // table properties
+    size = 1024;
+    default_action = drop();
+}
 ```
 
-## Packet headers
-A network packet is built in layers, where each layer adds its own header. Not every packet contains all headers, but when present, each one serves a specific purpose.
+In order to use the table, you will need to apply it in the `MyIngress` control block. You can do this by adding the following code to the `MyIngress` control block. The code will use the field `hdr.ipv4.dstAddr` as the key to lookup the table and apply the corresponding action.
 
-### Ethernet Header (Layer 2 – Data Link)
-- Purpose: Local delivery within a network
-- Used by: Switches
-- Contains:
-    - Source MAC address – who sent the packet
-    - Destination MAC address – who should receive it next
-    - EtherType – indicates what protocol comes next (e.g., IPv4, IPv6, ARP)
+```C
+    apply {
+        ipv4_lpm.apply();
+    }
+```
 
-> ‼️ This header is rewritten at every hop as packets move between networks.
+The entries of this table can be populated at runtime using the P4 Runtime API, which allows us to add, modify, or delete entries without modifying the P4 program itself. This is an activity which we will explore in more detail in future exercises, but for the purpose of this exercise, we have implemented a basic controller, which reads the content of a json file and populates the table entries accordingly. The controller is implemented in the file `util/simple_controller.py` and it can be invoked using the method `make p4-load`. The switch will load the compiled P4 program in file `p4src/build/bmv2.json` (compiler output from the action `make p4-build`), reads the content of the `mininet/s1-runtime.json` and update the switch state accordingly. In order to create the match-action table for the `ipv4_lpm` table above, you would use the following JSON structure:
 
-### IP Header (Layer 3 – Network)
-- Purpose: End-to-end delivery across networks
-- Used by: Routers
-- Contains:
-    - Source IP address
-    - Destination IP address
-    - Protocol field (TCP, UDP, ICMP, etc.)
-    - TTL (Time To Live) – prevents infinite looping
-    - Packet length & fragmentation info
+```json
+{
+  "target": "bmv2",
+  "p4info": "../p4src/build/p4info.txt",
+  "bmv2_json": "../p4src/build/bmv2.json",
+  "table_entries": [
+    {
+      "table": "MyIngress.ipv4_lpm",
+      "match": {
+        "hdr.ipv4.dstAddr": "10.0.0.4/32"
+      },
+      "action_name": "MyIngress.ipv4_forward",
+      "action_params": {
+        "p": 1,
+        "d": "00:00:00:00:00:04"
+      }
+    }
+}
+```
 
-> ‼️ This header determines where the packet is going globally.
+**You goal for this task is to modify the P4 program from the previous task and use a table to perform switching**. You will need to define a match-action table that matches the destination MAC address of incoming packets and forwards them to the appropriate output port. You will also need to modify the `MyIngress` control block to apply the table and forward packets accordingly. Finally, you will need to create the `table_entries` section of the `mininet/s1-runtime.json` JSON file to populates the table entries using the provided controller. You can consider your task completed when you can start the Mininet topology, load the P4 program, and successfully send packets between hosts in the network using the `pingall` command in the Mininet CLI.
 
-### Transport Layer Header (Layer 4)
-This header contains information about how the packet is transmitted between applications on different hosts. It specifies the transport protocol being used (such as TCP or UDP) and includes the necessary details to manage communication, such as port numbers, delivery guarantees, and flow control.
-#### TCP Header (Transmission Control Protocol)
-- Purpose: Reliable, ordered delivery
-- Used by: Web browsing, email, file transfer
-- Contains:
-    - Source & destination port numbers
-    - Sequence & acknowledgment numbers
-    - Flags (SYN, ACK, FIN)
-    - Window size (flow control)
+<!-- ## Some notes on debugging and troubleshooting
 
-> ‼️ TCP ensures no data is lost or reordered.
+You should not have had any trouble with these first introductory exercises. However, as things get more complicated you will most likely need to debug your programs and the behaviour of the switch and network.
 
-#### UDP Header (User Datagram Protocol)
-- Purpose: Fast, lightweight delivery
-- Used by: Video streaming, gaming, VoIP
-- Contains:
-    - Source & destination port numbers
-    - Packet length
-    - Checksum
+We have added a [small guideline](https://github.com/nsg-ethz/p4-learning/wiki/Debugging-and-Troubleshooting) in the documentation section. Use it as a reference when things do not work as expected. -->
 
-> ‼️ UDP is faster but does not guarantee delivery.
+## Further Reading and Resources
 
-### ICMP Header (Control & Error Messages)
-- Purpose: Network diagnostics and errors
-- Used by: ping, traceroute
-- Contains:
-    - Type (e.g., echo request, destination unreachable)
-    - Code (error details)
-
-> ‼️ ICMP packets do not carry application data.
-
-### Optional / Special Headers
-Optional or special headers are not present in every packet. They are added only when specific network features or services are required. These headers allow networks to provide advanced functionality beyond basic packet forwarding, without changing the core packet structure.
-#### VLAN Tag (802.1Q)
-- Used for network segmentation
-- Inserted between Ethernet header fields
-#### MPLS Header
-- Used in high-performance ISP networks
-- Enables fast packet forwarding using labels
-#### IPsec Headers
-- Used for encryption and authentication
-- Common in VPNs
-
-### Application Layer Data (Payload)
-- Purpose: Actual user data
-- Examples:
-    - HTTP request
-    - Video stream
-    - File contents
-    - DNS query
-
-> ‼️  Network devices usually do not inspect this, unless deep packet inspection is enabled.
-
-<!-- ## Analogy: Sending a Letter
-Think of a packet like mailing a letter:
-- Ethernet header → Office mailroom instructions
-- IP header → City and street address
-- TCP/UDP header → Delivery instructions (urgent or careful)
-- Payload → The letter itself
-
-Each network device only reads the part it cares about! -->
-
-## Why This Matters for P4 & SDN
-Normally, switches and routers are like robots with fixed instructions:
-> “I only understand Ethernet, IP, TCP… don’t ask me to do anything else.”
-P4 changes that.
-
-With P4, you get to say:
->“Hey switch, this is what a packet looks like, this is how I want you to read it, and this is what I want you to do with it.”
-
-### In other words:
-P4 = Programming Your Network Like a Game Character
-- You define what headers exist
-- You define how packets are processed
-- You define what actions to take
-- You control the rules of the game
-
-### Why P4 Is Cool?
-- You’re not stuck with predefined protocols
-- You can build custom routers and switches
-- You get full control over packet forwarding logic
-
-### Analogy: A Custom Recipe
-Traditional networking is like ordering from a fixed menu.
-
-P4 lets you write your own recipe:
-- Choose the ingredients (packet headers)
-- Decide how to cook them (packet processing)
-- Decide who gets served (forward, drop, modify)
-
-## Getting started with P4
-
-# Task 2: Building your very own switch with P4!
+- [P4 Language Specification](https://p4.org/wp-content/uploads/sites/53/2024/10/P4-16-spec-v1.2.5.html): The official specification of the P4 programming language.
+- [P4 Tutorial by P4.org](https://github.com/p4lang/tutorials): A series of tutorials to get started with P4 programming.We have used parts of these tutorials to create this exercise.
+- [Behavioral Model (bmv2)](https://github.com/p4lang/behavioral-model): The reference software switch for P4 programs.
+- [P4 Runtime API](https://p4.org/p4-runtime/): Documentation on the P4 Runtime API for controlling P4 switches.
