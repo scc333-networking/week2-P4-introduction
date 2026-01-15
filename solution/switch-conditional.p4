@@ -55,13 +55,6 @@ control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
 
-    action swap_mac(){
-       macAddr_t tmp;
-	   tmp = hdr.ethernet.srcAddr;
-	   hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
-	   hdr.ethernet.dstAddr = tmp;
-    }
-
     apply {
         macAddr_t PHONE_MAC = 0x000000000003;
         macAddr_t HOMEPC_MAC = 0x000000000002;
@@ -78,13 +71,8 @@ control MyIngress(inout headers hdr,
            standard_metadata.egress_spec = 1; // send to port 1 
         } else {
             // Drop packet if destination MAC is unknown
-            standard_metadata.egress_spec = standard_metadata.ingress_port; // assuming 0 is drop port
+            mark_to_drop();
         }
-    //    // Swap MAC addresses.
-    //    swap_mac();
-
-    //    //Set Output port == Input port
-    //    standard_metadata.egress_spec = standard_metadata.ingress_port;
     }
 }
 

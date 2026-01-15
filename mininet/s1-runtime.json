@@ -3,49 +3,7 @@
   "p4info": "../p4src/build/p4info.txt",
   "bmv2_json": "../p4src/build/bmv2.json",
   "table_entries": [
-    {
-      "table": "MyIngress.mac",
-      "match": {
-        "hdr.ethernet.dstAddr": "00:00:00:00:00:04"
-      },
-      "action_name": "MyIngress.forward",
-      "action_params": {
-        "egress_port": 1
-      }
-    },
-
-    {
-      "table": "MyIngress.mac",
-      "match": {
-        "hdr.ethernet.dstAddr": "00:00:00:00:00:02"
-      },
-      "action_name": "MyIngress.forward",
-      "action_params": {
-        "egress_port": 2
-      }
-    },
-
-        {
-      "table": "MyIngress.mac",
-      "match": {
-        "hdr.ethernet.dstAddr": "00:00:00:00:00:05"
-      },
-      "action_name": "MyIngress.forward",
-      "action_params": {
-        "egress_port": 3
-      }
-    },
-
-        {
-      "table": "MyIngress.mac",
-      "match": {
-        "hdr.ethernet.dstAddr": "00:00:00:00:00:03"
-      },
-      "action_name": "MyIngress.forward",
-      "action_params": {
-        "egress_port": 4
-      }
-    }
+      //  TODO 6: Add L2 forwarding table entries here. For each host connected to the switch, add an entry that maps the destination MAC address to the corresponding output port.
 
   ],
   "multicast_group_entries": [

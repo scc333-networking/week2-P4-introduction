@@ -59,10 +59,6 @@ control MyIngress(inout headers hdr,
         standard_metadata.egress_spec = egress_port;
     }
 
-    action broadcast() {
-        standard_metadata.mcast_grp = 1; // Broadcast
-    }
-
     table mac {
         key = {
             hdr.ethernet.dstAddr: exact;
@@ -70,10 +66,10 @@ control MyIngress(inout headers hdr,
 
         actions = {
             forward;
-            broadcast;
+            NoAction;
         }
         size = 256;
-        default_action = broadcast;
+        default_action = NoAction();
     }
 
     apply {
@@ -90,15 +86,7 @@ control MyIngress(inout headers hdr,
 control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
-    action drop() {
-        mark_to_drop(standard_metadata);
-    }
-
-    apply {  
-        if (standard_metadata.egress_spec == standard_metadata.ingress_port) {
-            drop();
-        }
-    }
+   apply { } 
 }
 
 /*************************************************************************

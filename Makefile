@@ -12,7 +12,7 @@ P4RT_SH_SHA := sha256:6ae50afb5bde620acb9473ce6cd7b990ff6cc63fe4113cf5584c8e38fe
 P4C_SHA := sha256:8f9d27a6edf446c3801db621359fec5de993ebdebc6844d8b1292e369be5dfea
 STRATUM_BMV2_SHA := sha256:f31faa5e83abbb2d9cf39d28b3578f6e113225641337ec7d16d867b0667524ef
 
-NGSDN_TOPO_PY := topo.py
+NGSDN_TOPO_PY := topology.py
 
 default:
 	$(error Please specify a make target (see README.md))
@@ -34,10 +34,10 @@ _start:
 	$(info *** Loading P4 program on the switch...)
 	PYTHONPATH=${PYTHONPATH} python3 ./util/simple_controller.py -a localhost:50001 -d 1 -p tmp/simple-controller.txt -c mininet/s1-runtime.json
 
-start: NGSDN_TOPO_PY := topo.py
+start: NGSDN_TOPO_PY := topology.py
 start: _start
 
-stop: NGSDN_TOPO_PY := topo.py
+stop: NGSDN_TOPO_PY := topology.py
 stop: _stop
 _stop:
 	$(info *** Stopping Mininet...)

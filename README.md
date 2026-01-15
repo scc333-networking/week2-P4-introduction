@@ -52,24 +52,11 @@ Below is a brief overview of the most common headers found in network packets:
 
 - It is not uncommon for packets to include *optional or special headers* that provide additional functionality. These headers are not part of the core packet structure but are used to support specific network features or services. Examples include VLAN tags for network segmentation, MPLS headers for efficient routing in service provider networks, and IPsec headers for secure communication. **Network devices usually do not inspect this, unless deep packet inspection is enabled.**
 
-- Optional or special headers are not present in every packet. They are added only when specific network features or services are required. These headers allow networks to provide advanced functionality beyond basic packet forwarding, without changing the core packet structure.
-
-
-<!-- ## Analogy: Sending a Letter
-Think of a packet like mailing a letter:
-- Ethernet header → Office mailroom instructions
-- IP header → City and street address
-- TCP/UDP header → Delivery instructions (urgent or careful)
-- Payload → The letter itself
-
-Each network device only reads the part it cares about! -->
-
 To process each of these headers, network devices such as switches and routers use predefined rules to inspect specific fields and make forwarding decisions based on them. Each device needs its own configuration to determine how to handle packets based on the protocols and services it supports, while distributed protocols, such as OSPF and BGP, help routers dynamically learn about the network topology and update their forwarding tables accordingly. These properties were sufficient for network requirements in the early days of the Internet, but as networks have evolved, the need for more flexibility and programmability has become apparent. This is where P4 comes in.
-
 
 ## Why This Matters for P4 & SDN
 
-P4 (Programming Protocol-Independent Packet Processors) is a programming language designed to give developers control over how packets are processed in network devices. It allows you to define how packets are parsed, processed, and forwarded, enabling the creation of custom network functions and behaviours.
+P4 (Programming Protocol-Independent Packet Processors) is a programming language designed to give developers control over how packets are processed in network devices. It allows you to define how packets are parsed, processed, and forwarded, enabling the creation of custom network functions and behaviours. 
 
 Normally, switches and routers are like robots with fixed instructions:
 > “I only understand Ethernet, IP, TCP… don’t ask me to do anything else.”
@@ -78,25 +65,15 @@ P4 changes that.
 With P4, you get to say:
 >“Hey switch, this is what a packet looks like, this is how I want you to read it, and this is what I want you to do with it.”
 
-### In other words:
-P4 = Programming Your Network Like a Game Character
-- You define what headers exist
-- You define how packets are processed
-- You define what actions to take
-- You control the rules of the game
+![Figure 1: Seperation of Control and Data Plane in a network.](.resources/sdn-view.png){}
 
-### Why P4 Is Cool?
-- You’re not stuck with predefined protocols
-- You can build custom routers and switches
-- You get full control over packet forwarding logic
+P4 and SDN try built on the idea of separating the control plane (the brain) from the data plane (the muscles) of network devices. The control plane makes decisions about where to send packets, while the data plane actually forwards the packets based on those decisions. SDN allows you to program the control plane using a centralized controller, while P4 allows you to program the data plane using a high-level language. This approach can deliver multiple benefits for operators and developers.
 
-### Analogy: A Custom Recipe
-Traditional networking is like ordering from a fixed menu.
+This approach allows a network operator to define custom packet headers, parsing logic, and forwarding behaviour, enabling the creation of new network protocols and services without changing the underlying hardware. If you are a cloud provider which wants to run a new bespoke protocol for your data centre, or a research lab wanting to experiment with new network algorithms, P4 gives you the flexibility to do so, without need expensive hardware upgrades. In parallel, resources on a network device have typically specific limitation, like lookup table sizes or device queues. P4 allows network operators to optimize how to use the resources of a network device based on their specific use case, improving performance and efficiency.
 
-P4 lets you write your own recipe:
-- Choose the ingredients (packet headers)
-- Decide how to cook them (packet processing)
-- Decide who gets served (forward, drop, modify)
+SDN and P4 offers benefits simplifies network management. During the SCC.231 you had the experience configuring a network consisting of multiple OSPF routers. This process can be complex and error-prone, especially in large networks. P4 offers the ability to centrally manage and configure network devices using a controller, simplifying network management and reducing the risk of misconfiguration. Instead of writting individual configurations for each device, you can define high-level policies and rules, which a software controller can transalate automatically into configuration for each device.
+
+In todays tutorial, we will explore how we can use P4 to program a simple switch for our home network. We will start by replacing the Linux switch in our home network topology with a P4 switch, and then we will build a simple P4 program that makes the switch act as a packet repeater. Along the way, we will learn about the key concepts of P4 programming, including header definitions, parsing, and control blocks. 
 
 ## Task 0: Starting your 333 devcontainer environment
 
@@ -106,46 +83,48 @@ To simplify lab coding, we use a technology called containerisation to package e
 
 In order to open the code in a devcontainer, you should select the option `Open In devcontainer` when opening the folder in VSCode. If you missed the option when openning the project, you can still setup the devcontainer. Use the key combination of Ctrl+Shift+P to open the command palette and then select **Dev Containers: Open Folder in Container...**. Both options are depicted in the screenshots below.
 
-![Figure 3: Open devcontainer from popup](.resources/devcontainer-open-boot.png){width="5in"}
+![Figure 2: Open devcontainer from popup](.resources/devcontainer-open-boot.png){width="5in"}
 
-![Figure 4: Open devcontainer from action menu](.resources/devcontainer-menu.png){width="5in"}
+![Figure 3: Open devcontainer from action menu](.resources/devcontainer-menu.png){width="5in"}
 
 If you have opened the devcontainer correctly, you should see the following prompt when opening a new terminal in VSCode:
 
-![Figure 5: Devcontainer terminal prompt](.resources/homenet-router.png){width="5in"}
+![Figure 4: Devcontainer terminal prompt](.resources/devcontainer-prompt.png){width="5in"}
 
 ## Task 1: Using P4 in our home network scenario
 
 For this first task, we will reuse the home network topology from the first week and replace the Linux Switch node with a P4 switch. The updated topology file will replace the home switch with a P4 switch, which we will use to host our custom P4 applications. 
 
-![Figure 1: Home network topology with P4 switch](.resources/homenet-router.png){width="5in"}
+![Figure 5: Home network topology with P4 switch](.resources/homenet-router.png){width="5in"}
 
-A P4 switch is a network device that enables developers to implement and run custom packet-processing programs written in the P4 language. There are several P4 switch implementations, some of which use real hardware to implement the P4 pipeline, such as Barefoot Tofino. In this exercise, we will use the Stratum software switch, an open-source implementation of a P4-programmable switch. Stratum supports the P4 Runtime API, which allows us to program the switch using a P4 program using the GRPC protocol. The switch is designed to implement the P4 v1 model, a standard architecture for P4 programmable switches. It is not designed for high performance, but rather for learning and experimentation purposes.
+A P4 switch is a network device that enables developers to implement and run custom packet-processing programs written in the P4 language. There are several P4 switch implementations, some of which use real hardware to process Tbps of traffic using P4 programs, such as Barefoot Tofino. In this exercise, we will use the [Stratum software switch](https://github.com/stratum/stratum), an open-source implementation of a P4-programmable switch. Stratum supports the P4 Runtime API, which allows us to program the switch using a P4 program using the GRPC protocol. The switch is designed to implement the P4 v1 model, a standard architecture for P4 programmable switches. It is not designed for high performance, but rather for learning and experimentation purposes.
 
 The developers of the Stratum platform provide a Mininet Switch class called `Stratum`, defined in `p4_mininet/stratum.py`, that allows developers to run Stratum switches in their topology. This class extends the basic Mininet `Switch` class and adds all the functionality needed to run a P4 switch using the Stratum software switch. You can check the implementation of this class to understand how it works, **but you do not need to modify or understand the code for this exercise**.
 
 In order to add a P4 switch to the topology, you will have to modify the `mininet/topology.py` file. In this file, you will find the definition of the home network topology. You will have to replace the `LinuxSwitch` node with a `Stratum` node. You should replace your original switch definition with the following code:
 
 ```python
-s1 = self.addSwitch('s1', cls=StratumBmv2Switch, grpcPort=50001)
+s1 = self.addSwitch('s1', cls=StratumBmv2Switch)
 ```
-If you now run the topology with the command `make start`, you should see that the switch starts using the Stratum software switch. You can check the logs of the switch using the command `docker logs <container_id>`, where `<container_id>` is the ID of the switch container. You can find the container ID with the `docker ps` command. At the moment, the switch is not doing anything, since we have not loaded any P4 program yet. In the next step, we will load a simple P4 program that makes the switch act as a packet repeater.
+If you now run the topology with the command `make start`, you should see that the switch starts using the Stratum software switch. You can check the logs of the switch in file `tmp/s1/stratum_bmv2.log`. At the moment, the switch is not doing anything, since we have not loaded any P4 program yet. In the next step, we will load a simple P4 program that makes the switch act as a packet repeater. *If the switch log is not there, ask help from a lab assistant.*
 
 To simplify your interactions with the mininet topology and the P4 program, we have created a simple Makefile that you should use to start and stop the topology, build your P4 program, and open a terminal to the mininet session. You can use the following commands to interact with the topology:
 
-- `make start`: This command will start the mininet topology  defined in the file `mininet/topology.py`.
-- `make mn-cli`: This command will open a terminal to the mininet session, allowing you to interact with the hosts and switches in the topology.
+- `make start`: This command will start the mininet topology  defined in the file `mininet/topology.py`. **The command will not return a terminal prompt**.
+- `make mn-cli`: This command will connect you to the Mininet CLI of the running topology, allowing you to interact with the hosts and switches in the topology.You can exit from the session by pressing `Ctrl+D` (The mininet topology will continue running).
+- `make mn-log`: Print the logs of the mininet topology to the terminal.
 - `make stop`: This command will stop the mininet topology and clean up all the resources used by the topology.
-- `make p4build`: This command will compile the P4 program defined in the file `p4src/main.p4` and generate the necessary files to run the P4 program in the Stratum software switch. If you update your P4 program, you should first stop the topology using `make stop`, then run `make p4build` to compile the new program, and finally start the topology again using `make start`.
+- `make p4-build`: This command will compile the P4 program defined in the file `p4src/main.p4` and generate the necessary files to run the P4 program in the Stratum software switch. If you update your P4 program, you should first stop the topology using `make stop`, then run `make p4-build` to compile the new program, and finally start the topology again using `make start`.
+- `make p4-reload`: This command will reload the P4 program on switch `s1`. You should use this command after updating and recompiling your P4 program using `make p4-build`. This command will not stop the mininet topology, but it will reload the P4 program on the switch.
 - `make clean`: Stop the topology and clean up all the resources used by the topology.
 
-**Your goal for this task is to modify the topology file to use a P4 switch instead of a Linux switch and start the Mininet topology.** The switch offers a couple of ways to debug and troubleshoot its behaviour. Once the P4 switch has started, you will find a `tmp/` folder in your working directory. This folder contains the switch logs, which you can use to debug any issues with your P4 program. If your P4 switch is loaded successfully, you should see a log file called `stratum_bmv2-<switch_name>.log`, where `<switch_name>` is the name of the switch in the topology (in our case `s1`). You can use the command `tail -f tmp/stratum_bmv2-s1.log` to follow the logs of the switch in real-time.
+**Your goal for this task is to modify the topology file to use a P4 switch instead of a Linux switch and start the Mininet topology.** The switch offers a couple of ways to debug and troubleshoot its behaviour. Once the P4 switch has started, you will find a `tmp/` folder in your working directory. This folder contains the switch logs, which you can use to debug any issues with your P4 program. If your P4 switch is loaded successfully, you should see a log file called `tmp/s1/stratum_bmv2.log`. You can use the command `tail -f tmp/s1/stratum_bmv2.log` to follow the logs of the switch in real-time.
 
 ```
 E0106 11:32:47.355383    88 main.cc:121] Starting bmv2 simple_switch and waiting for P4 pipeline
 ```
 
-You can connect to the mininet CLI using the command `make mn-cli`. At the moment, the switch is not doing anything, since we have not loaded any P4 program yet. You can now connect to the Mininet CLI and run the command `> phone python send_receive.py 192.168.0.5`. This program will send a packet from the phone host to the switch. Since the switch is not doing anything, the packet will be dropped, and you will not see any output in the app. In the next step, we will load a simple P4 program that makes the switch act as a packet reflector, forwarding the packet back to the sender.
+You can connect to the mininet CLI using the command `make mn-cli`. 
 
 > If you have a message when you run the command `make start` like the following:
 >```
@@ -155,7 +134,9 @@ You can connect to the mininet CLI using the command `make mn-cli`. At the momen
 
 ## Task 2: Introduction to P4 programming
 
-P4 is a high-level programming language designed for programming packet processors, such as switches and routers. It allows developers to define how packets are processed and forwarded through the network. P4 is a domain-specific language focused on the data plane of network devices, enabling flexible, programmable packet processing. In SCC.231, we discussed the different types of network devices (e.g., switches, routers, hubs) and their functionalities. P4 tries to abstract the functionalities of these devices and provide a unified programming model for packet processing, which allows the same device to behave as a switch, router, firewall, etc., depending on the P4 program loaded into it.
+P4 is a high-level programming language designed for programming packet processors, such as switches and routers. It allows developers to define how packets are processed and forwarded through the network. P4 is a domain-specific language focused on the data plane of network devices, enabling flexible, programmable packet processing. In SCC.231, we discussed the different types of network devices (e.g., switches, routers, hubs) and their functionalities. P4 tries to abstract the functionalities of these devices and provide a unified programming model for packet processing, which allows the same device to behave as a switch, router, firewall, etc., depending on the P4 program loaded into it. As depicted in the figure below, a P4 program is not designed to redefine the entire behaviour of a network device, but rather to define how packets are processed in the data plane. P4 programs define the behaviour of specific stage during the packet processing pipeline, such as parsing, matching, and forwarding, and the underlying switch hardware is responsible for implementing the actual packet processing and data movement.
+
+![Figure 6: Example P4 packet processing pipeline with user-defined blocks.](.resources/P4-switch.gif){}
 
 The P4 language looks a lot like C, with similar syntax and constructs. However, P4 has some unique features that make it suitable for programming packet processors. Some of the key features of P4 include:
 
@@ -276,13 +257,12 @@ struct standard_metadata_t {
 }
 ```
 
-
-**Your goal for this task is to compile and load the P4 program on the P4 switch of your mininet topology.** As discussed in the previous task, in our Makefile, we have defined a command `make p4build` that will compile the P4 program file `p4src/main.p4`. Try to run the command and check which files are generated in the `p4src/build` folder. This will create two files:
+**Your goal for this task is to compile and load the P4 program on the P4 switch of your mininet topology.** As discussed in the previous task, in our Makefile, we have defined a command `make p4-build` that will compile the P4 program file `p4src/main.p4`. Try to run the command and check which files are generated in the `p4src/build` folder. This will create two files:
 
 - `bmv2.json`: This file contains the compiled P4 program in JSON format, which is used by the Stratum software switch to configure the P4 pipeline.
 - `p4info.txt`: This file contains details that can be used by the P4 Runtime controller to interact with the P4 program running in the switch. This is something that we will explore in more detail in future exercises.
 
-When you run the command `make start`, the Makefile will automatically compile the P4 program and load it into the Stratum software switch. You can check the switch's logs to see if the P4 program loaded successfully. If everything went well, you should see a message like this in the logs: `I0106 11:32:50.123456    88 p4_pipeline_builder.cc:123] P4 pipeline successfully loaded`. Furthermore, you can use the small `send_receive.py` script located in the `mininet/` folder to test the functionality of the switch. This script sends a packet from a host to the switch and waits for a copy of the packet. If you connect to the mininet CLI using the command `make mn-cli` and run the command `> phone python send_receive.py 192.168.0.5`, you should see that the packet is sent from the phone host to the switch and read the following output:
+When you run the command `make start`, the Makefile will automatically compile the P4 program and load it into the Stratum software switch. You can check the switch's logs to see if the P4 program loaded successfully. If everything went well, you should see a message like this in the logs: `I0106 11:32:50.123456    88 p4_pipeline_builder.cc:123] P4 pipeline successfully loaded`. Furthermore, you can use the small `send_receive.py` script located in the `mininet/` folder to test the functionality of the switch. This script sends a packet from a host to the switch and waits for a copy of the packet. If you connect to the mininet CLI using the command `make mn-cli` and run the command `mininet> homePC python send_receive.py 192.168.0.5`, you should see that the packet is sent from the phone host to the switch and read the following output:
 
 ```
 [!] A packet was reflected from the switch:
@@ -291,9 +271,9 @@ When you run the command `make start`, the Makefile will automatically compile t
 
 ## Task 3: Static Switching using P4
 
-Let's start building our P4 program! In this exercise, you will learn how the basics of the P4 language and learn how to compile a P4 program using the SCC.333 pipeline. In this introductory exercise we will use our first table and conditional statements in a control block. In this exercise you will make a two-port switch act as a packet repeater, in other words, when a packet enters port 1 it has to be leave from port 2 and vice versa.
+Let's start our P4 development! In this exercise, you will learn the basics of the P4 language. In this introductory exercise we will use our first table and conditional statements in a control block. In this exercise you will make a two-port switch act as a packet repeater, in other words, when a packet enters port 1 it has to be leave from port 2 and vice versa.
 
-To solve this exercise, you only need to fill in the gaps; you will need to modify the `main.p4` file. The places where you are supposed to write your own code are marked with a TODO. You will have to solve this exercise using two different approaches (for the sake of learning). First, and since the switch only has 2 ports, you will have to solve the exercise by just using conditional statements and fixed logic. For the second solution, you will have to use a match-action table and populate it using the CLI.
+To solve this exercise, you only need to fill in the gaps; you will need to modify the `main.p4` file. The places where you are supposed to write your own code are marked with a *TODO #*. You will have to solve this exercise using two different approaches (for the sake of learning). First, you will have to solve the exercise by just using conditional statements (i.e., if statements) and fixed logic. For the second solution, you will have to use a match-action table and populate it using the CLI.
 
 ### Parsing Ethernet Headers
 
@@ -357,7 +337,7 @@ Parsing in P4 is performed using a state machine, where each state corresponds t
         }
 ```
 
-### Packet Switching using Conditional Statements
+### Approach 1: Packet Switching using Conditional Statements
 
 Your goal for this part of the exercise is to make the switch act as an Ethernet Switch using only conditional statements. You will need to modify the `MyIngress` control block in order to check the destination MAC address of each packet and forward packets accordingly. You can use the following table to determine the output port based on the destination MAC address:
 
@@ -387,7 +367,7 @@ control MyIngress(inout headers hdr,
 
 You can drop packets by setting the `egress_spec` field to `0`. Alternatively, you can send packets to the CPU port by setting the `egress_spec` field to `CPU_PORT`, which is defined in the `v1model.p4` architecture file. This is useful for handling packets with unknown destination MAC addresses or for implementing control-plane functionality. We will explore this in more detail in our activity next week.
 
-## Task 4: Using P4 Tables for Packet Switching
+## Approach 2: Using P4 Tables for Packet Switching
 
 In our current solution, we have implemented the switching logic using conditional statements. However, this approach is not scalable and does not leverage the P4 language's capabilities. If you have a new device joining your network, you would need to modify the P4 program and recompile it, which is not practical in a real-world scenario.
 
@@ -428,7 +408,9 @@ In order to use the table, you will need to apply it in the `MyIngress` control 
     }
 ```
 
-The entries of this table can be populated at runtime using the P4 Runtime API, which allows us to add, modify, or delete entries without modifying the P4 program itself. This is an activity which we will explore in more detail in future exercises, but for the purpose of this exercise, we have implemented a basic controller, which reads the content of a json file and populates the table entries accordingly. The controller is implemented in the file `util/simple_controller.py` and it can be invoked using the method `make p4-load`. The switch will load the compiled P4 program in file `p4src/build/bmv2.json` (compiler output from the action `make p4-build`), reads the content of the `mininet/s1-runtime.json` and update the switch state accordingly. In order to create the match-action table for the `ipv4_lpm` table above, you would use the following JSON structure:
+Design a custom match-action table in the `MyIngress` control block called `mac` that matches the destination MAC address of incoming packets. MAC lookup tables typically use an exact match operation. You should also implement a `forward` action that forwards a packet to the appropriate output port based on the table entries.
+
+The entries of this table can be populated at runtime using the P4 Runtime API, which allows us to add, modify, or delete entries without modifying the P4 program itself. This is an activity which we will explore in more detail in the next exercise, but for the purpose of this exercise, we have implemented a basic controller, which reads the content of a json file and populates the table entries accordingly. The controller is implemented in the file `util/simple_controller.py` and it can be invoked using the method `make p4-load`. The switch will load the compiled P4 program in file `p4src/build/bmv2.json` (compiler output from the action `make p4-build`), reads the content of the `mininet/s1-runtime.json` and update the switch state accordingly. In order to create the match-action table for the `ipv4_lpm` table above, you would use the following JSON structure:
 
 ```json
 {
@@ -447,16 +429,19 @@ The entries of this table can be populated at runtime using the P4 Runtime API, 
         "d": "00:00:00:00:00:04"
       }
     }
+  ]
 }
 ```
 
 **You goal for this task is to modify the P4 program from the previous task and use a table to perform switching**. You will need to define a match-action table that matches the destination MAC address of incoming packets and forwards them to the appropriate output port. You will also need to modify the `MyIngress` control block to apply the table and forward packets accordingly. Finally, you will need to create the `table_entries` section of the `mininet/s1-runtime.json` JSON file to populates the table entries using the provided controller. You can consider your task completed when you can start the Mininet topology, load the P4 program, and successfully send packets between hosts in the network using the `pingall` command in the Mininet CLI.
 
-<!-- ## Some notes on debugging and troubleshooting
+## Conclusions
 
-You should not have had any trouble with these first introductory exercises. However, as things get more complicated you will most likely need to debug your programs and the behaviour of the switch and network.
+Congratulations on completing the P4 introduction exercise! In this exercise, you have learned the basics of P4 programming and how to use P4 to implement a simple Ethernet switch. You have also learned how to use match-action tables to implement packet forwarding logic in a scalable and flexible way. In lab 1, we described the concept of learning switch and your current implementation is halfway achieving that goal. In the next exercise, we will extend the functionality of the switch to implement a full learning switch, this will include:
 
-We have added a [small guideline](https://github.com/nsg-ethz/p4-learning/wiki/Debugging-and-Troubleshooting) in the documentation section. Use it as a reference when things do not work as expected. -->
+* Explore the P4runtime API to configure the switch at runtime.
+* Use P4runtime to configure the switch to broadcast packets with unknown destination MAC addresses.
+* Implement logic to learn MAC addresses and populate the match-action table accordingly.
 
 ## Further Reading and Resources
 

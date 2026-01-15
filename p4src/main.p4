@@ -8,18 +8,15 @@
 
 typedef bit<48> macAddr_t;
 
-header ethernet_t {
-    macAddr_t dstAddr;
-    macAddr_t srcAddr;
-    bit<16>   etherType;
-}
+// TODO 1: define an ethernet header that contains dstAddr(48 bits), srcAddr(48 bits), etherType (16 bits)
 
 struct metadata {
     /* empty */
 }
 
 struct headers {
-    ethernet_t   ethernet;
+   /* empty */
+   // TODO 2: add ethernet header to the headers struct
 }
 
 /*************************************************************************
@@ -32,7 +29,8 @@ parser MyParser(packet_in packet,
                 inout standard_metadata_t standard_metadata) {
 
       state start{
-  	    packet.extract(hdr.ethernet);
+
+        // TODO 3: define ethernet header parsing logic
         transition accept;
       }
 
@@ -55,31 +53,12 @@ control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
 
-    action forward(bit<9> egress_port) {
-        standard_metadata.egress_spec = egress_port;
-    }
-
-    action broadcast() {
-        standard_metadata.mcast_grp = 1; // Broadcast
-    }
-
-    table mac {
-        key = {
-            hdr.ethernet.dstAddr: exact;
-        }
-
-        actions = {
-            forward;
-            broadcast;
-        }
-        size = 256;
-        default_action = broadcast;
-    }
+    // TODO 6: Update the code and define a table for L2 forwarding here. Update then the entries in the file mininet/s1-runtime.json
 
     apply {
-        if (hdr.ethernet.isValid()) {
-            mac.apply();
-        }
+        standard_metadata.egress_spec = standard_metadata.ingress_port;
+
+      // TODO 5: Assuming a fixed network topology, write a simple L2 forwarding using if statements.
     }
 }
 
@@ -90,15 +69,7 @@ control MyIngress(inout headers hdr,
 control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
-    action drop() {
-        mark_to_drop(standard_metadata);
-    }
-
-    apply {  
-        if (standard_metadata.egress_spec == standard_metadata.ingress_port) {
-            drop();
-        }
-    }
+    apply { }
 }
 
 /*************************************************************************
@@ -106,6 +77,7 @@ control MyEgress(inout headers hdr,
 *************************************************************************/
 
 control MyComputeChecksum(inout headers  hdr, inout metadata meta) {
+    
     apply { }
 }
 
@@ -115,8 +87,7 @@ control MyComputeChecksum(inout headers  hdr, inout metadata meta) {
 
 control MyDeparser(packet_out packet, in headers hdr) {
     apply {
-		// parsed headers have to be added again into the packet
-		packet.emit(hdr.ethernet);
+		// TODO 4: define ethernet header deparsing logic 
 	}
 }
 

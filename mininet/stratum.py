@@ -113,6 +113,7 @@ class StratumBmv2Switch(Switch):
         self.cpuPort = cpuport
         self.json = json
         self.loglevel = loglevel
+        print("⚡️ Using stratum_bmv2 JSON: %s" % self.loglevel)
         self.tmpDir = '/tmp/%s' % self.name
         self.logfile = '%s/stratum_bmv2.log' % self.tmpDir
         self.netcfgFile = '%s/onos-netcfg.json' % self.tmpDir
