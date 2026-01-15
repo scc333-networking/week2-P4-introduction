@@ -8,7 +8,8 @@ services:
     stdin_open: true
     restart: always
     environment:
-      - DISPLAY=${DISPLAY} # Uncomment if X11 forwarding is needed
+      # - DISPLAY=${DISPLAY} 
+      - DISPLAY=docker.for.mac.host.internal:0
     volumes:
       - ./tmp:/tmp
       - ./mininet:/mininet
@@ -23,5 +24,4 @@ services:
     # NGSDN_TOPO_PY is a Python-based Mininet script defining the topology. Its
     # value is passed to docker-compose as an environment variable, defined in
     # the Makefile.
-    command: python3 /mininet/topo.py
-    entrypoint: /bin/bash -c
+    entrypoint: /mininet/topology.py

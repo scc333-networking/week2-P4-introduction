@@ -100,6 +100,8 @@ P4 lets you write your own recipe:
 
 ## Task 0: Starting your 333 devcontainer environment
 
+> In order to run wireshark and GUI applications from within a Docker container on your local machine, you will need to disable the X11 access control on your host machine. You can do this by running the command `xhost +` on a terminal on your host machine (open the terminal application on the lab machnine, **not** inside the container, or on the mininet prompt). 
+
 To simplify lab coding, we use a technology called containerisation to package everything you need to run our lab activities in a pre-configured environment. You might have heard of Docker containers, which are lightweight, portable, and consistent virtual instances that can run applications and services.
 
 In order to open the code in a devcontainer, you should select the option `Open In devcontainer` when opening the folder in VSCode. If you missed the option when openning the project, you can still setup the devcontainer. Use the key combination of Ctrl+Shift+P to open the command palette and then select **Dev Containers: Open Folder in Container...**. Both options are depicted in the screenshots below.
@@ -122,7 +124,7 @@ A P4 switch is a network device that enables developers to implement and run cus
 
 The developers of the Stratum platform provide a Mininet Switch class called `Stratum`, defined in `p4_mininet/stratum.py`, that allows developers to run Stratum switches in their topology. This class extends the basic Mininet `Switch` class and adds all the functionality needed to run a P4 switch using the Stratum software switch. You can check the implementation of this class to understand how it works, **but you do not need to modify or understand the code for this exercise**.
 
-In order to add a P4 switch to the topology, you will have to modify the `mininet/topo.py` file. In this file, you will find the definition of the home network topology. You will have to replace the `LinuxSwitch` node with a `Stratum` node. You should replace your original switch definition with the following code:
+In order to add a P4 switch to the topology, you will have to modify the `mininet/topology.py` file. In this file, you will find the definition of the home network topology. You will have to replace the `LinuxSwitch` node with a `Stratum` node. You should replace your original switch definition with the following code:
 
 ```python
 s1 = self.addSwitch('s1', cls=StratumBmv2Switch, grpcPort=50001)
@@ -131,7 +133,8 @@ If you now run the topology with the command `make start`, you should see that t
 
 To simplify your interactions with the mininet topology and the P4 program, we have created a simple Makefile that you should use to start and stop the topology, build your P4 program, and open a terminal to the mininet session. You can use the following commands to interact with the topology:
 
-- `make start`: This command will start the mininet topology  defined in the file `mininet/topo.py`. 
+- `make start`: This command will start the mininet topology  defined in the file `mininet/topology.py`.
+- `make mn-cli`: This command will open a terminal to the mininet session, allowing you to interact with the hosts and switches in the topology.
 - `make stop`: This command will stop the mininet topology and clean up all the resources used by the topology.
 - `make p4build`: This command will compile the P4 program defined in the file `p4src/main.p4` and generate the necessary files to run the P4 program in the Stratum software switch. If you update your P4 program, you should first stop the topology using `make stop`, then run `make p4build` to compile the new program, and finally start the topology again using `make start`.
 - `make clean`: Stop the topology and clean up all the resources used by the topology.
@@ -384,7 +387,7 @@ control MyIngress(inout headers hdr,
 
 You can drop packets by setting the `egress_spec` field to `0`. Alternatively, you can send packets to the CPU port by setting the `egress_spec` field to `CPU_PORT`, which is defined in the `v1model.p4` architecture file. This is useful for handling packets with unknown destination MAC addresses or for implementing control-plane functionality. We will explore this in more detail in our activity next week.
 
-## Task 3: Using P4 Tables for Packet Switching
+## Task 4: Using P4 Tables for Packet Switching
 
 In our current solution, we have implemented the switching logic using conditional statements. However, this approach is not scalable and does not leverage the P4 language's capabilities. If you have a new device joining your network, you would need to modify the P4 program and recompile it, which is not practical in a real-world scenario.
 
