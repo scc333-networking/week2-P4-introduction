@@ -68,7 +68,9 @@ To process each of these headers, network devices such as switches and routers u
 
 
 ## Why This Matters for P4 & SDN
+
 P4 (Programming Protocol-Independent Packet Processors) is a programming language designed to give developers control over how packets are processed in network devices. It allows you to define how packets are parsed, processed, and forwarded, enabling the creation of custom network functions and behaviours.
+
 Normally, switches and routers are like robots with fixed instructions:
 > “I only understand Ethernet, IP, TCP… don’t ask me to do anything else.”
 P4 changes that.
