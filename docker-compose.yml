@@ -15,6 +15,7 @@ services:
       - ./mininet:/mininet
       - ./p4src:/p4src
       - ./util:/util
+      - /tmp/.X11-unix:/tmp/.X11-unix
     ports:
       - "50001:50001"
       - "50002:50002"
