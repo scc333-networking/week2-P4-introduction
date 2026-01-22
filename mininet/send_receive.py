@@ -27,7 +27,7 @@ class Sniffer(Thread):
             iface=self.interface,
             filter="ip"
         )
-        sniff(opened_socket=self.socket, prn=self.print_packet, lfilter=self.isNotOutgoing,
+        sniff(opened_socket=self.socket, prn=self.print_packet, lfilter=None,
               stop_filter=self.should_stop_sniffer)
 
     def join(self, timeout=None):
