@@ -30,17 +30,20 @@ class LabTopology(Topo):
         web = self.addHost("web", ip="10.0.0.16/16",
                            defaultRoute="via 10.0.0.1")
 
-        router = self.addHost("router", ip=None, defaultRoute='via 192.168.10.1')
-        internet = self.addHost("internet", ip=None, defaultRoute='via 192.168.10.2')
+        router = self.addHost(
+            "router", ip=None, defaultRoute='via 192.168.10.1')
+        internet = self.addHost("internet", ip=None,
+                                defaultRoute='via 192.168.10.2')
 
         # Connect hosts to the switch
         self.addLink(switch, homePC, port1=2)
         self.addLink(switch, tablet, port1=3)
         self.addLink(switch, phone, port1=4)
         self.addLink(router, switch, port2=1, params1={"ip": "192.168.0.1/24"})
-        self.addLink(internet, router, params1={"ip": "192.168.10.1/24"}, params2={"ip": "192.168.10.2/24"})
-        self.addLink(router, web, params1={"ip": "10.0.0.1/16"})
-        self.addLink(router, cloud, params1={"ip": "10.10.0.1/16"})
+        self.addLink(internet, router, params1={
+                     "ip": "192.168.10.1/24"}, params2={"ip": "192.168.10.2/24"})
+        self.addLink(internet, web, params1={"ip": "10.0.0.1/16"})
+        self.addLink(internet, cloud, params1={"ip": "10.10.0.1/16"})
 
 
 # Expose topology for `mn --custom topology.py --topo LabTopology --mac --arp --controller=none --switch=lxbr`
@@ -51,7 +54,7 @@ topos = {
 
 def run():
     """Spin up the network, run a quick test, then drop into CLI."""
-    net = Mininet(topo=LabTopology(), link=TCLink, 
+    net = Mininet(topo=LabTopology(), link=TCLink,
                   autoSetMacs=True,
                   autoStaticArp=True,
                   switch=LinuxBridge, controller=None)

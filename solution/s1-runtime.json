@@ -6,14 +6,13 @@
     {
       "table": "MyIngress.mac",
       "match": {
-        "hdr.ethernet.dstAddr": "00:00:00:00:00:04"
+        "hdr.ethernet.dstAddr": "00:00:00:00:00:05"
       },
       "action_name": "MyIngress.forward",
       "action_params": {
         "egress_port": 1
       }
     },
-
     {
       "table": "MyIngress.mac",
       "match": {
@@ -24,29 +23,26 @@
         "egress_port": 2
       }
     },
-
-        {
+    {
       "table": "MyIngress.mac",
       "match": {
-        "hdr.ethernet.dstAddr": "00:00:00:00:00:05"
+        "hdr.ethernet.dstAddr": "00:00:00:00:00:06"
       },
       "action_name": "MyIngress.forward",
       "action_params": {
         "egress_port": 3
       }
     },
-
-        {
+    {
       "table": "MyIngress.mac",
       "match": {
-        "hdr.ethernet.dstAddr": "00:00:00:00:00:03"
+        "hdr.ethernet.dstAddr": "00:00:00:00:00:04"
       },
       "action_name": "MyIngress.forward",
       "action_params": {
         "egress_port": 4
       }
     }
-
   ],
   "multicast_group_entries": [
     {

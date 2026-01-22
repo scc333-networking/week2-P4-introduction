@@ -353,9 +353,9 @@ Your goal for this part of the exercise is to make the switch act as an Ethernet
 | Host | MAC Address | Switch Port |
 |-------|------------|-------------|
 | homePC    | 00:00:00:00:00:02 | 2           |
-| tablet    | 00:00:00:00:00:05 | 3           |
-| phone     | 00:00:00:00:00:03 | 4           |
-| router    | 00:00:00:00:00:04 | 1           |
+| tablet    | 00:00:00:00:00:06 | 3           |
+| phone     | 00:00:00:00:00:04 | 4           |
+| router    | 00:00:00:00:00:05 | 1           |
 
 > Your Mininet topology script uses static MAC addresses for the hosts. The MAC addresses in the table above correspond to the hosts defined in the topology and assume that you haven't changed the order of the statements in the Python file. If you have changed the order of the hosts, please check the MAC addresses assigned to each host by executing the command `ip link show up` in each host (e.g., `> homePC ip link show up`).
 
