@@ -6,7 +6,7 @@
   "postCreateCommand": "bash -c /scripts/entrypoint.sh",
   "privileged": true,
   "containerEnv": {
-     "DISPLAY": "${localEnv:DISPLAY}"
+    "DISPLAY": "${localEnv:DISPLAY}"
   },
   "mounts": [
     "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached"
@@ -30,7 +30,7 @@
         "ms-python.python",
         "ms-python.isort",
         "ms-python.autopep8",
-        "fattaholmanan.p4-vscode-extension"
+        "1amchris.p4-language"
       ],
       "settings": {
         // General Settings
