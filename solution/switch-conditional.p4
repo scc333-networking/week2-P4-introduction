@@ -56,10 +56,10 @@ control MyIngress(inout headers hdr,
                   inout standard_metadata_t standard_metadata) {
 
     apply {
-        macAddr_t PHONE_MAC = 0x000000000003;
+        macAddr_t PHONE_MAC = 0x000000000004;
         macAddr_t HOMEPC_MAC = 0x000000000002;
-        macAddr_t ROUTER_MAC = 0x000000000004;
-        macAddr_t TABLET_MAC = 0x000000000005;
+        macAddr_t ROUTER_MAC = 0x000000000005;
+        macAddr_t TABLET_MAC = 0x000000000006;
 
         if (hdr.ethernet.dstAddr == HOMEPC_MAC) { // homePC
             standard_metadata.egress_spec = 2; // send to port 2
